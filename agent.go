@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
-	"net/http"
 	"os"
 	"strings"
 )
@@ -15,19 +14,15 @@ Before writing files or running commands, briefly explain what you are doing.
 When you finish a task, respond without requesting tools.`
 
 type Agent struct {
-	apiKey      string
-	model       string
-	client      *http.Client
+	provider    Provider
 	messages    []Message
 	planMode    bool
 	supervision bool
 }
 
-func NewAgent(apiKey, model string, client *http.Client) *Agent {
+func NewAgent(provider Provider) *Agent {
 	return &Agent{
-		apiKey: apiKey,
-		model:  model,
-		client: client,
+		provider: provider,
 		messages: []Message{
 			{Role: "system", Content: systemPrompt},
 		},
@@ -76,16 +71,15 @@ func (a *Agent) RunUserTurn(input string) error {
 	a.messages = append(a.messages, Message{Role: "user", Content: input})
 
 	for iteration := 1; ; iteration++ {
-		response, err := a.chat(a.messages, tools())
+		message, err := a.provider.Chat(a.messages, tools())
 		if err != nil {
 			return err
 		}
-		if len(response.Choices) == 0 {
+		if message == nil {
 			return errors.New("the model returned no responses")
 		}
 
-		message := response.Choices[0].Message
-		a.messages = append(a.messages, message)
+		a.messages = append(a.messages, *message)
 
 		if len(message.ToolCalls) == 0 {
 			fmt.Printf("\n%s\n", message.Content)
@@ -96,10 +90,9 @@ func (a *Agent) RunUserTurn(input string) error {
 		for _, call := range message.ToolCalls {
 			result := a.runTool(call)
 			a.messages = append(a.messages, Message{
-				Role:       "tool",
-				ToolCallID: call.ID,
-				ToolName:   call.Function.Name,
-				Content:    result,
+				Role:     "tool",
+				ToolName: call.Function.Name,
+				Content:  result,
 			})
 		}
 	}
@@ -110,16 +103,16 @@ func (a *Agent) confirmPlan(input string) (bool, string, error) {
 		{Role: "system", Content: "Make a brief, numbered, and concrete plan. Do not use tools."},
 		{Role: "user", Content: input},
 	}
-	response, err := a.chat(planMessages, nil)
+	message, err := a.provider.Chat(planMessages, nil)
 	if err != nil {
 		return false, "", err
 	}
-	if len(response.Choices) == 0 {
+	if message == nil {
 		return false, "", errors.New("the model returned no plan")
 	}
 
 	fmt.Println("\nProposed plan:")
-	fmt.Println(response.Choices[0].Message.Content)
+	fmt.Println(message.Content)
 	fmt.Print("\nApprove? [y/n/modify]: ")
 
 	scanner := bufio.NewScanner(os.Stdin)

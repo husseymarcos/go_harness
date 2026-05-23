@@ -7,13 +7,13 @@ import (
 	"os"
 	"strings"
 
-	gotdotenv "github.com/joho/godotenv"
+	"github.com/joho/godotenv"
 )
 
 const geminiModel = "gemini-2.0-flash"
 
 func main() {
-	err := gotdotenv.Load()
+	err := godotenv.Load()
 	if err != nil && !os.IsNotExist(err) {
 		fmt.Println("Error loading .env:", err)
 		os.Exit(1)
@@ -24,12 +24,13 @@ func main() {
 		fmt.Println("Missing GEMINI_API_KEY in the environment.")
 		os.Exit(1)
 	}
-	if os.Getenv("TAVILY_API_KEY") == "" {
-		fmt.Println("Missing TAVILY_API_KEY in the environment.")
-		os.Exit(1)
-	}
 
-	agent := NewAgent(apiKey, geminiModel, &http.Client{})
+	provider := &GeminiProvider{
+		APIKey: apiKey,
+		Model:  geminiModel,
+		Client: &http.Client{},
+	}
+	agent := NewAgent(provider)
 
 	fmt.Println("Coding agent ready.")
 	fmt.Println("Commands: :plan on/off, :supervision on/off, :quit")

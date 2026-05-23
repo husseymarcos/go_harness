@@ -106,7 +106,7 @@ func writeFile(path, content string) string {
 	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
 		return "Error writing file: " + err.Error()
 	}
-		return "File written: " + path
+	return "File written: " + path
 }
 
 func runCommand(command string) string {
