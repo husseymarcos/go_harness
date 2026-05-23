@@ -1,11 +1,8 @@
 package main
 
 import (
-	"bufio"
 	"errors"
 	"fmt"
-	"os"
-	"strings"
 )
 
 const systemPrompt = `You are a minimalist coding agent.
@@ -29,107 +26,66 @@ func NewAgent(provider Provider) *Agent {
 	}
 }
 
-func (a *Agent) HandleCommand(input string) bool {
-	switch input {
-	case ":quit", ":exit":
-		os.Exit(0)
-	case ":plan on":
-		a.planMode = true
-		fmt.Println("Plan mode activated.")
-		return true
-	case ":plan off":
-		a.planMode = false
-		fmt.Println("Plan mode deactivated.")
-		return true
-	case ":supervision on":
-		a.supervision = true
-		fmt.Println("Supervision activated.")
-		return true
-	case ":supervision off":
-		a.supervision = false
-		fmt.Println("Supervision deactivated.")
-		return true
-	}
-	return false
-}
-
 func (a *Agent) RunUserTurn(input string) error {
-	if a.planMode {
-		ok, replacement, err := a.confirmPlan(input)
-		if err != nil {
-			return err
-		}
-		if !ok {
-			fmt.Println("Task cancelled.")
-			return nil
-		}
-		if replacement != "" {
-			input = replacement
-		}
+	input, ok, err := a.prepareInput(input)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		fmt.Println("Task cancelled.")
+		return nil
 	}
 
-	a.messages = append(a.messages, Message{Role: "user", Content: input})
+	a.addMessage("user", input)
 
 	for iteration := 1; ; iteration++ {
-		message, err := a.provider.Chat(a.messages, tools())
+		message, err := a.askModel()
 		if err != nil {
 			return err
 		}
-		if message == nil {
-			return errors.New("the model returned no responses")
-		}
 
-		a.messages = append(a.messages, *message)
-
-		if len(message.ToolCalls) == 0 {
-			fmt.Printf("\n%s\n", message.Content)
-			fmt.Printf("(internal loop iterations: %d)\n", iteration)
+		if message.hasFinalAnswer() {
+			printFinalAnswer(message.Content, iteration)
 			return nil
 		}
 
-		for _, call := range message.ToolCalls {
-			result := a.runTool(call)
-			a.messages = append(a.messages, Message{
-				Role:     "tool",
-				ToolName: call.Function.Name,
-				Content:  result,
-			})
-		}
+		a.runToolCalls(message.ToolCalls)
 	}
 }
 
-func (a *Agent) confirmPlan(input string) (bool, string, error) {
-	planMessages := []Message{
-		{Role: "system", Content: "Make a brief, numbered, and concrete plan. Do not use tools."},
-		{Role: "user", Content: input},
-	}
-	message, err := a.provider.Chat(planMessages, nil)
+func (a *Agent) addMessage(role, content string) {
+	a.messages = append(a.messages, Message{Role: role, Content: content})
+}
+
+func (a *Agent) askModel() (*Message, error) {
+	message, err := a.provider.Chat(a.messages, tools())
 	if err != nil {
-		return false, "", err
+		return nil, err
 	}
 	if message == nil {
-		return false, "", errors.New("the model returned no plan")
+		return nil, errors.New("the model returned no responses")
 	}
 
-	fmt.Println("\nProposed plan:")
-	fmt.Println(message.Content)
-	fmt.Print("\nApprove? [y/n/modify]: ")
+	a.messages = append(a.messages, *message)
+	return message, nil
+}
 
-	scanner := bufio.NewScanner(os.Stdin)
-	if !scanner.Scan() {
-		return false, "", scanner.Err()
-	}
-	answer := strings.TrimSpace(strings.ToLower(scanner.Text()))
+func (m *Message) hasFinalAnswer() bool {
+	return len(m.ToolCalls) == 0
+}
 
-	if answer == "y" || answer == "yes" {
-		return true, "", nil
+func printFinalAnswer(content string, iterations int) {
+	fmt.Printf("\n%s\n", content)
+	fmt.Printf("(internal loop iterations: %d)\n", iterations)
+}
+
+func (a *Agent) runToolCalls(calls []ToolCall) {
+	for _, call := range calls {
+		result := a.runTool(call)
+		a.messages = append(a.messages, Message{
+			Role:     "tool",
+			ToolName: call.Function.Name,
+			Content:  result,
+		})
 	}
-	if answer == "modify" || answer == "m" {
-		fmt.Print("New instruction: ")
-		if !scanner.Scan() {
-			return false, "", scanner.Err()
-		}
-		return true, strings.TrimSpace(scanner.Text()), nil
-	}
-	return false, "", nil
 }
