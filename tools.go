@@ -18,14 +18,14 @@ func (a *Agent) runTool(call ToolCall) string {
 	fmt.Printf("\n[tool] %s %s\n", call.Function.Name, call.Function.Arguments)
 
 	if a.supervision && modifiesSystem(call.Function.Name) {
-		fmt.Print("Ejecutar esta acción? [s/n]: ")
+		fmt.Print("Execute this action? [y/n]: ")
 		scanner := bufio.NewScanner(os.Stdin)
 		if !scanner.Scan() {
-			return "Acción cancelada: no se pudo leer confirmación."
+			return "Action cancelled: could not read confirmation."
 		}
 		answer := strings.TrimSpace(strings.ToLower(scanner.Text()))
-		if answer != "s" && answer != "si" && answer != "sí" && answer != "y" {
-			return "Acción cancelada por el usuario."
+		if answer != "y" && answer != "yes" {
+			return "Action cancelled by the user."
 		}
 	}
 
@@ -77,12 +77,12 @@ func (a *Agent) runTool(call ToolCall) string {
 		return webSearch(args.Query)
 	}
 
-	return "Tool desconocida: " + call.Function.Name
+	return "Unknown tool: " + call.Function.Name
 }
 
 func parseArgs(call ToolCall, target any) error {
 	if strings.TrimSpace(call.Function.Arguments) == "" {
-		return errors.New("faltan argumentos")
+		return errors.New("missing arguments")
 	}
 	return json.Unmarshal([]byte(call.Function.Arguments), target)
 }
@@ -94,26 +94,26 @@ func modifiesSystem(toolName string) bool {
 func readFile(path string) string {
 	content, err := os.ReadFile(path)
 	if err != nil {
-		return "Error leyendo archivo: " + err.Error()
+		return "Error reading file: " + err.Error()
 	}
 	return string(content)
 }
 
 func writeFile(path, content string) string {
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
-		return "Error creando directorio: " + err.Error()
+		return "Error creating directory: " + err.Error()
 	}
 	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
-		return "Error escribiendo archivo: " + err.Error()
+		return "Error writing file: " + err.Error()
 	}
-	return "Archivo escrito: " + path
+		return "File written: " + path
 }
 
 func runCommand(command string) string {
 	cmd := exec.Command("sh", "-c", command)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Sprintf("Comando terminó con error: %v\n%s", err, string(output))
+		return fmt.Sprintf("Command failed with error: %v\n%s", err, string(output))
 	}
 	return string(output)
 }
@@ -125,7 +125,7 @@ func listFiles(path string) string {
 
 	entries, err := os.ReadDir(path)
 	if err != nil {
-		return "Error listando archivos: " + err.Error()
+		return "Error listing files: " + err.Error()
 	}
 
 	var lines []string
@@ -142,7 +142,7 @@ func listFiles(path string) string {
 func webSearch(query string) string {
 	apiKey := os.Getenv("TAVILY_API_KEY")
 	if apiKey == "" {
-		return "Falta TAVILY_API_KEY. No se puede usar web_search."
+		return "Missing TAVILY_API_KEY. web_search is unavailable."
 	}
 
 	body, _ := json.Marshal(map[string]any{
@@ -155,16 +155,16 @@ func webSearch(query string) string {
 
 	res, err := http.Post("https://api.tavily.com/search", "application/json", bytes.NewReader(body))
 	if err != nil {
-		return "Error buscando en la web: " + err.Error()
+		return "Error searching the web: " + err.Error()
 	}
 	defer res.Body.Close()
 
 	raw, err := io.ReadAll(res.Body)
 	if err != nil {
-		return "Error leyendo respuesta de Tavily: " + err.Error()
+		return "Error reading Tavily response: " + err.Error()
 	}
 	if res.StatusCode < 200 || res.StatusCode > 299 {
-		return fmt.Sprintf("Tavily devolvió status %d: %s", res.StatusCode, string(raw))
+		return fmt.Sprintf("Tavily returned status %d: %s", res.StatusCode, string(raw))
 	}
 	return string(raw)
 }

@@ -6,24 +6,33 @@ import (
 	"net/http"
 	"os"
 	"strings"
+
+	gotdotenv "github.com/joho/godotenv"
 )
 
+const geminiModel = "gemini-2.0-flash"
+
 func main() {
-	apiKey := os.Getenv("OPENAI_API_KEY")
-	if apiKey == "" {
-		fmt.Println("Falta OPENAI_API_KEY en el entorno.")
+	err := gotdotenv.Load()
+	if err != nil && !os.IsNotExist(err) {
+		fmt.Println("Error loading .env:", err)
 		os.Exit(1)
 	}
 
-	model := os.Getenv("OPENAI_MODEL")
-	if model == "" {
-		model = "gpt-4.1-mini"
+	apiKey := os.Getenv("GEMINI_API_KEY")
+	if apiKey == "" {
+		fmt.Println("Missing GEMINI_API_KEY in the environment.")
+		os.Exit(1)
+	}
+	if os.Getenv("TAVILY_API_KEY") == "" {
+		fmt.Println("Missing TAVILY_API_KEY in the environment.")
+		os.Exit(1)
 	}
 
-	agent := NewAgent(apiKey, model, &http.Client{})
+	agent := NewAgent(apiKey, geminiModel, &http.Client{})
 
-	fmt.Println("Coding agent listo.")
-	fmt.Println("Comandos: :plan on/off, :supervision on/off, :quit")
+	fmt.Println("Coding agent ready.")
+	fmt.Println("Commands: :plan on/off, :supervision on/off, :quit")
 
 	scanner := bufio.NewScanner(os.Stdin)
 	for {

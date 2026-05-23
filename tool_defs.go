@@ -13,21 +13,21 @@ type ToolSchema struct {
 
 func tools() []ToolDef {
 	return []ToolDef{
-		tool("read_file", "Lee el contenido de un archivo.", map[string]any{
-			"path": stringParam("Path del archivo a leer."),
+		tool("read_file", "Read the content of a file.", map[string]any{
+			"path": stringParam("Path of the file to read."),
 		}, []string{"path"}),
-		tool("write_file", "Escribe contenido en un archivo, reemplazando el contenido actual.", map[string]any{
-			"path":    stringParam("Path del archivo a escribir."),
-			"content": stringParam("Contenido completo del archivo."),
+		tool("write_file", "Write content to a file, replacing the current content.", map[string]any{
+			"path":    stringParam("Path of the file to write."),
+			"content": stringParam("Full content of the file."),
 		}, []string{"path", "content"}),
-		tool("run_command", "Ejecuta un comando de terminal y devuelve stdout y stderr.", map[string]any{
-			"command": stringParam("Comando completo a ejecutar."),
+		tool("run_command", "Run a terminal command and return stdout and stderr.", map[string]any{
+			"command": stringParam("Full command to run."),
 		}, []string{"command"}),
-		tool("list_files", "Lista los archivos en un directorio.", map[string]any{
-			"path": stringParam("Directorio a listar. Usar . si no se especifica."),
+		tool("list_files", "List the files in a directory.", map[string]any{
+			"path": stringParam("Directory to list. Use . if not specified."),
 		}, []string{"path"}),
-		tool("web_search", "Busca información en la web con Tavily.", map[string]any{
-			"query": stringParam("Consulta de búsqueda."),
+		tool("web_search", "Search the web with Tavily.", map[string]any{
+			"query": stringParam("Search query."),
 		}, []string{"query"}),
 	}
 }
@@ -39,10 +39,9 @@ func tool(name, description string, properties map[string]any, required []string
 			Name:        name,
 			Description: description,
 			Parameters: map[string]any{
-				"type":                 "object",
-				"properties":           properties,
-				"required":             required,
-				"additionalProperties": false,
+				"type":       "object",
+				"properties": properties,
+				"required":   required,
 			},
 		},
 	}

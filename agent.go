@@ -9,10 +9,10 @@ import (
 	"strings"
 )
 
-const systemPrompt = `Sos un coding agent minimalista.
-Tu trabajo es ayudar al usuario usando herramientas cuando haga falta.
-Antes de escribir archivos o ejecutar comandos, explicá brevemente qué estás haciendo.
-Cuando termines una tarea, respondé sin pedir herramientas.`
+const systemPrompt = `You are a minimalist coding agent.
+Your job is to help the user using tools when needed.
+Before writing files or running commands, briefly explain what you are doing.
+When you finish a task, respond without requesting tools.`
 
 type Agent struct {
 	apiKey      string
@@ -40,19 +40,19 @@ func (a *Agent) HandleCommand(input string) bool {
 		os.Exit(0)
 	case ":plan on":
 		a.planMode = true
-		fmt.Println("Plan mode activado.")
+		fmt.Println("Plan mode activated.")
 		return true
 	case ":plan off":
 		a.planMode = false
-		fmt.Println("Plan mode desactivado.")
+		fmt.Println("Plan mode deactivated.")
 		return true
 	case ":supervision on":
 		a.supervision = true
-		fmt.Println("Supervisión activada.")
+		fmt.Println("Supervision activated.")
 		return true
 	case ":supervision off":
 		a.supervision = false
-		fmt.Println("Supervisión desactivada.")
+		fmt.Println("Supervision deactivated.")
 		return true
 	}
 	return false
@@ -65,7 +65,7 @@ func (a *Agent) RunUserTurn(input string) error {
 			return err
 		}
 		if !ok {
-			fmt.Println("Tarea cancelada.")
+			fmt.Println("Task cancelled.")
 			return nil
 		}
 		if replacement != "" {
@@ -81,7 +81,7 @@ func (a *Agent) RunUserTurn(input string) error {
 			return err
 		}
 		if len(response.Choices) == 0 {
-			return errors.New("el modelo no devolvió respuestas")
+			return errors.New("the model returned no responses")
 		}
 
 		message := response.Choices[0].Message
@@ -89,7 +89,7 @@ func (a *Agent) RunUserTurn(input string) error {
 
 		if len(message.ToolCalls) == 0 {
 			fmt.Printf("\n%s\n", message.Content)
-			fmt.Printf("(iteraciones del loop interno: %d)\n", iteration)
+			fmt.Printf("(internal loop iterations: %d)\n", iteration)
 			return nil
 		}
 
@@ -98,6 +98,7 @@ func (a *Agent) RunUserTurn(input string) error {
 			a.messages = append(a.messages, Message{
 				Role:       "tool",
 				ToolCallID: call.ID,
+				ToolName:   call.Function.Name,
 				Content:    result,
 			})
 		}
@@ -106,7 +107,7 @@ func (a *Agent) RunUserTurn(input string) error {
 
 func (a *Agent) confirmPlan(input string) (bool, string, error) {
 	planMessages := []Message{
-		{Role: "system", Content: "Armá un plan breve, numerado y concreto. No uses tools."},
+		{Role: "system", Content: "Make a brief, numbered, and concrete plan. Do not use tools."},
 		{Role: "user", Content: input},
 	}
 	response, err := a.chat(planMessages, nil)
@@ -114,12 +115,12 @@ func (a *Agent) confirmPlan(input string) (bool, string, error) {
 		return false, "", err
 	}
 	if len(response.Choices) == 0 {
-		return false, "", errors.New("el modelo no devolvió plan")
+		return false, "", errors.New("the model returned no plan")
 	}
 
-	fmt.Println("\nPlan propuesto:")
+	fmt.Println("\nProposed plan:")
 	fmt.Println(response.Choices[0].Message.Content)
-	fmt.Print("\nAprobar? [s/n/modificar]: ")
+	fmt.Print("\nApprove? [y/n/modify]: ")
 
 	scanner := bufio.NewScanner(os.Stdin)
 	if !scanner.Scan() {
@@ -127,11 +128,11 @@ func (a *Agent) confirmPlan(input string) (bool, string, error) {
 	}
 	answer := strings.TrimSpace(strings.ToLower(scanner.Text()))
 
-	if answer == "s" || answer == "si" || answer == "sí" || answer == "y" {
+	if answer == "y" || answer == "yes" {
 		return true, "", nil
 	}
-	if answer == "modificar" || answer == "m" {
-		fmt.Print("Nueva instrucción: ")
+	if answer == "modify" || answer == "m" {
+		fmt.Print("New instruction: ")
 		if !scanner.Scan() {
 			return false, "", scanner.Err()
 		}
